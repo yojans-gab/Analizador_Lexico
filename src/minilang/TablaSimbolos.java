@@ -42,4 +42,9 @@ public class TablaSimbolos {
         }
         System.out.println("=".repeat(70));
     }
+
+    // Agrega este método a TablaSimbolos.java
+    public Map<String, Token> getTabla() {
+        return tabla;
+    }
 }
