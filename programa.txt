@@ -1,0 +1,48 @@
+programa Demo <<
+
+    num x;
+    num contador;
+    decimal y;
+    texto nombre;
+    letra inicial;
+    logico activo;
+
+    x = 10;
+    contador = 0;
+    y = 20.5;
+    nombre = "Luis";
+    inicial = 'L';
+    activo = cierto;
+
+    mostrar(nombre);
+    mostrar(x);
+
+    si (x > 5) ??
+        mostrar("Mayor que cinco");
+        x = x + 1;
+    !!
+
+    si (x == 11) ??
+        mostrar("x vale once");
+    sino
+        mostrar("x no vale once");
+    !!
+
+    mientras (contador < 3) ::
+        contador = contador + 1;
+        mostrar(contador);
+    ::
+
+    y = x + y;
+    y = y * 2.0;
+    y = y / 4.0;
+    y = y - 1.5;
+    y = y ^ 2;
+
+    si (activo != falso) ??
+        mostrar("Sistema activo");
+    !!
+
+    @
+
+>>
