@@ -15,8 +15,7 @@ public class Main {
 
         String rutaArchivo;
 
-        // Si se pasa argumento por línea de comandos, úsalo
-        // Si no, pedirlo interactivamente
+
         if (args.length >= 1) {
             rutaArchivo = args[0];
         } else {

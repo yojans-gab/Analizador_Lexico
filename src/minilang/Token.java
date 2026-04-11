@@ -15,7 +15,7 @@ public class Token {
 
     public TipoToken getTipo()    { return tipo; }
     public String    getLexema()  { return lexema; }
-    public String    getValor()   { return lexema; } // alias para compatibilidad con Main
+    public String    getValor()   { return lexema; }
     public int       getLinea()   { return linea; }
     public int       getColumna() { return columna; }
 
