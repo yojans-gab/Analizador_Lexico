@@ -1,30 +1,40 @@
-/* ============================================================
-   Compilador TurboX — Analizador Sintáctico
-   Fase 2: Gramática BNF con JCUP
-   ============================================================ */
-
 package minilang;
-
 import java_cup.runtime.*;
 
-/* ── Código que va dentro de la clase Parser ── */
+/* ── Clase puente accesible desde action code y parser code ── */
 action code {:
-    TablaSimbolos tabla = TablaSimbolos.getInstance();
+
+    // Referencia directa a las listas — se inicializan en parser code
+    private static java.util.List<String> _errSem =
+        new java.util.ArrayList<>();
+
+    void errorSemantico(String msg) {
+        minilang.CupHelper.agregarError("[ERROR SEMANTICO] " + msg);
+    }
+
+    boolean compatibles(String t1, String t2) {
+        if (t1 == null || t2 == null)  return true;
+        if (t1.equals(t2))             return true;
+        if (t1.equals("decimal") && t2.equals("num")) return true;
+        if (t1.equals("error") || t2.equals("error")) return true;
+        return false;
+    }
 :}
 
-/* ── Manejo personalizado de errores sintácticos ── */
 parser code {:
     private java.util.List<String> erroresSintacticos = new java.util.ArrayList<>();
-    private int ultimaLinea   = 0;
-    private int ultimaColumna = 0;
-    private String ultimoLexema = "";
+    private int    ultimaLinea   = 0;
+    private int    ultimaColumna = 0;
+    private String ultimoLexema  = "";
 
     public java.util.List<String> getErroresSintacticos() {
         return erroresSintacticos;
     }
 
-    // JCUP llama a este metodo antes de cada accion
-    // Lo usamos para rastrear la posicion del ultimo token
+    public java.util.List<String> getErroresSemanticos() {
+        return minilang.CupHelper.getErroresSemanticos();
+    }
+
     public void rastrearToken(minilang.Token t) {
         if (t != null) {
             ultimaLinea   = t.getLinea();
@@ -67,7 +77,7 @@ parser code {:
     }
 :}
 
-/* ── Declaración de terminales (tokens del Lexer) ── */
+/* ── Terminales ── */
 terminal PR_PROGRAMA, PR_NUM, PR_DECIMAL, PR_TEXTO;
 terminal PR_LETRA, PR_LOGICO, PR_CIERTO, PR_FALSO;
 terminal PR_MOSTRAR, PR_SI, PR_SINO, PR_MIENTRAS;
@@ -79,115 +89,273 @@ terminal PAR_IZQ, PAR_DER, PUNTO_COMA, COMA;
 terminal ENTERO_LITERAL, REAL_LITERAL, STRING_LITERAL, CHAR_LITERAL;
 terminal String ID;
 
-/* ── Declaración de no terminales ── */
-non terminal programa;
-non terminal bloque;
-non terminal lista_sentencias;
-non terminal sentencia;
-non terminal declaracion;
-non terminal asignacion;
-non terminal condicion;
-non terminal ciclo;
-non terminal impresion;
-non terminal tipo;
-non terminal expresion;
-non terminal expresion_rel;
-non terminal termino;
-non terminal factor;
+/* ── No terminales ── */
+non terminal          programa;
+non terminal          lista_sentencias;
+non terminal          sentencia;
+non terminal          declaracion;
+non terminal          condicion;
+non terminal          ciclo;
+non terminal          impresion;
+non terminal          asignacion;
+non terminal String   tipo;
+non terminal String   expresion;
+non terminal String   termino;
+non terminal String   factor;
+non terminal String   expresion_rel;
 
-/* ── Precedencia (resuelve ambigüedad aritmética) ── */
+/* ── Precedencia ── */
 precedence left SUMA, RESTA;
 precedence left MULT, DIV;
 precedence right POTENCIA;
 
-/* ── Símbolo inicial ── */
 start with programa;
 
-/* ============================================================
+/* ══════════════════════════════════════════════════════════════
    REGLAS GRAMATICALES
-   ============================================================ */
+   ══════════════════════════════════════════════════════════════ */
 
-/* Un programa completo */
-programa ::= PR_PROGRAMA ID ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
+programa ::= PR_PROGRAMA ID:nombre ABRE_BLOQUE
+             {:
+                 // Registrar nombre del programa ANTES de procesar sentencias
+                 TablaSimbolos ts = TablaSimbolos.getInstance();
+                 ts.agregar(nombre,
+                     new Token(TipoToken.ID, nombre, 0, 0), "programa");
+             :}
+             lista_sentencias CIERRA_BLOQUE
+             {:
+                 // Verificar R10: nadie declaró una variable con ese nombre
+                 TablaSimbolos ts = TablaSimbolos.getInstance();
+                 String tipo = ts.getTipo(nombre);
+                 if (tipo != null && !tipo.equals("programa")) {
+                     minilang.CupHelper.agregarError(
+                         "[ERROR SEMANTICO] '" + nombre +
+                         "' es el nombre del programa y no puede" +
+                         " usarse como variable.");
+                 }
+             :}
            ;
 
-/* Lista de sentencias: puede ser vacía o múltiples */
 lista_sentencias ::= lista_sentencias sentencia
-                   | /* vacía */
+                   | /* vacia */
                    ;
 
-/* Tipos de sentencias válidas */
 sentencia ::= declaracion
             | asignacion
             | condicion
             | ciclo
             | impresion
-            | error PUNTO_COMA   /* recuperación de errores */
+            | error PUNTO_COMA
             ;
 
-/* Declaración de variable: tipo ID ; */
-declaracion ::= tipo ID PUNTO_COMA
+/* ── Declaracion ── */
+declaracion ::= tipo:t ID:nombre PUNTO_COMA
+                {:
+                    TablaSimbolos ts = TablaSimbolos.getInstance();
+                    Token tokReal = ts.getToken(nombre);
+                    if (tokReal == null)
+                        tokReal = new Token(TipoToken.ID, nombre, 0, 0);
+
+                    if (ts.existe(nombre) &&
+                        !"desconocido".equals(ts.getTipo(nombre))) {
+                        minilang.CupHelper.agregarError(
+                            "[ERROR SEMANTICO] Variable '" + nombre +
+                            "' ya fue declarada anteriormente.");
+                    } else {
+                        ts.agregar(nombre, tokReal, t);
+                    }
+                :}
               ;
 
-/* Tipos de datos disponibles */
-tipo ::= PR_NUM
-       | PR_DECIMAL
-       | PR_TEXTO
-       | PR_LETRA
-       | PR_LOGICO
+tipo ::= PR_NUM     {: RESULT = "num";     :}
+       | PR_DECIMAL {: RESULT = "decimal"; :}
+       | PR_TEXTO   {: RESULT = "texto";   :}
+       | PR_LETRA   {: RESULT = "letra";   :}
+       | PR_LOGICO  {: RESULT = "logico";  :}
        ;
 
-/* Asignación: ID = expresion ; */
-asignacion ::= ID ASIGNACION expresion PUNTO_COMA
+/* ── Asignacion ── */
+asignacion ::= ID:nombre ASIGNACION expresion:te PUNTO_COMA
+               {:
+                   TablaSimbolos ts = TablaSimbolos.getInstance();
+                   if (!ts.existe(nombre) ||
+                       ts.getTipo(nombre).equals("desconocido")) {
+                       errorSemantico("Variable '" + nombre +
+                           "' usada sin declarar.");
+                   } else {
+                       String tv = ts.getTipo(nombre);
+                       if (!compatibles(tv, te)) {
+                           errorSemantico("Tipos incompatibles: no se puede" +
+                               " asignar '" + te + "' a '" + nombre +
+                               "' de tipo '" + tv + "'.");
+                       }
+                   }
+               :}
              ;
-
-/* Condicional SI con y sin SINO */
-condicion ::= PR_SI PAR_IZQ expresion_rel PAR_DER
+/* ── Condicional ── */
+condicion ::= PR_SI PAR_IZQ expresion_rel:tr PAR_DER
               ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
-            | PR_SI PAR_IZQ expresion_rel PAR_DER
+              {:
+                  if (!tr.equals("logico") && !tr.equals("error")) {
+                      errorSemantico("Condicion del 'si' debe ser logico," +
+                          " se obtuvo '" + tr + "'.");
+                  }
+              :}
+            | PR_SI PAR_IZQ expresion_rel:tr PAR_DER
               ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
               PR_SINO
               ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
+              {:
+                  if (!tr.equals("logico") && !tr.equals("error")) {
+                      errorSemantico("Condicion del 'si-sino' debe ser" +
+                          " logico, se obtuvo '" + tr + "'.");
+                  }
+              :}
             ;
 
-/* Ciclo MIENTRAS */
-ciclo ::= PR_MIENTRAS PAR_IZQ expresion_rel PAR_DER
+/* ── Ciclo ── */
+ciclo ::= PR_MIENTRAS PAR_IZQ expresion_rel:tr PAR_DER
           ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
+          {:
+              if (!tr.equals("logico") && !tr.equals("error")) {
+                  errorSemantico("Condicion del 'mientras' debe ser" +
+                      " logico, se obtuvo '" + tr + "'.");
+              }
+          :}
         ;
 
-/* Función mostrar */
-impresion ::= PR_MOSTRAR PAR_IZQ expresion PAR_DER PUNTO_COMA
+/* ── Mostrar ── */
+impresion ::= PR_MOSTRAR PAR_IZQ expresion:t PAR_DER PUNTO_COMA
             ;
 
-/* ── Expresiones aritméticas ── */
-expresion ::= expresion SUMA     termino
-            | expresion RESTA    termino
-            | termino
+/* ── Expresiones aritmeticas ── */
+expresion ::= expresion:t1 SUMA termino:t2
+              {:
+                  if (t1.equals("texto") || t2.equals("texto") ||
+                      t1.equals("logico") || t2.equals("logico")) {
+                      errorSemantico("Operacion '+' invalida entre '" +
+                          t1 + "' y '" + t2 + "'.");
+                      RESULT = "error";
+                  } else {
+                      RESULT = (t1.equals("decimal") ||
+                                t2.equals("decimal")) ? "decimal" : "num";
+                  }
+              :}
+            | expresion:t1 RESTA termino:t2
+              {:
+                  if (t1.equals("texto") || t2.equals("texto") ||
+                      t1.equals("logico") || t2.equals("logico")) {
+                      errorSemantico("Operacion '-' invalida entre '" +
+                          t1 + "' y '" + t2 + "'.");
+                      RESULT = "error";
+                  } else {
+                      RESULT = (t1.equals("decimal") ||
+                                t2.equals("decimal")) ? "decimal" : "num";
+                  }
+              :}
+            | termino:t {: RESULT = t; :}
             ;
 
-termino ::= termino MULT   factor
-          | termino DIV    factor
-          | termino POTENCIA factor
-          | factor
+termino ::= termino:t1 MULT factor:t2
+            {:
+                if (t1.equals("texto") || t2.equals("texto") ||
+                    t1.equals("logico") || t2.equals("logico")) {
+                    errorSemantico("Operacion '*' invalida entre '" +
+                        t1 + "' y '" + t2 + "'.");
+                    RESULT = "error";
+                } else {
+                    RESULT = (t1.equals("decimal") ||
+                              t2.equals("decimal")) ? "decimal" : "num";
+                }
+            :}
+          | termino:t1 DIV factor:t2
+            {:
+                if (t1.equals("texto") || t2.equals("texto") ||
+                    t1.equals("logico") || t2.equals("logico")) {
+                    errorSemantico("Operacion '/' invalida entre '" +
+                        t1 + "' y '" + t2 + "'.");
+                    RESULT = "error";
+                } else {
+                    RESULT = "decimal";
+                }
+            :}
+          | termino:t1 POTENCIA factor:t2
+            {: RESULT = "decimal"; :}
+          | factor:t {: RESULT = t; :}
           ;
 
-factor ::= PAR_IZQ expresion PAR_DER
-         | ID
-         | ENTERO_LITERAL
-         | REAL_LITERAL
-         | STRING_LITERAL
-         | CHAR_LITERAL
-         | PR_CIERTO
-         | PR_FALSO
+factor ::= PAR_IZQ expresion:t PAR_DER {: RESULT = t; :}
+         | ID:nombre
+           {:
+               TablaSimbolos ts = TablaSimbolos.getInstance();
+               if (!ts.existe(nombre)) {
+                   errorSemantico("Variable '" + nombre +
+                       "' usada sin declarar.");
+                   RESULT = "error";
+               } else {
+                   RESULT = ts.getTipo(nombre);
+               }
+           :}
+         | ENTERO_LITERAL  {: RESULT = "num";    :}
+         | REAL_LITERAL    {: RESULT = "decimal"; :}
+         | STRING_LITERAL  {: RESULT = "texto";   :}
+         | CHAR_LITERAL    {: RESULT = "letra";   :}
+         | PR_CIERTO       {: RESULT = "logico";  :}
+         | PR_FALSO        {: RESULT = "logico";  :}
          ;
 
 /* ── Expresiones relacionales ── */
-expresion_rel ::= expresion IGUAL_IGUAL  expresion
-                | expresion DIFERENTE    expresion
-                | expresion MAYOR        expresion
-                | expresion MENOR        expresion
-                | expresion MAYOR_IGUAL  expresion
-                | expresion MENOR_IGUAL  expresion
-                | expresion
+expresion_rel ::= expresion:t1 IGUAL_IGUAL expresion:t2
+                  {:
+                      if (!compatibles(t1,t2) && !compatibles(t2,t1)) {
+                          errorSemantico("Comparacion incompatible: '" +
+                              t1 + "' == '" + t2 + "'.");
+                      }
+                      RESULT = "logico";
+                  :}
+                | expresion:t1 DIFERENTE expresion:t2
+                  {:
+                      if (!compatibles(t1,t2) && !compatibles(t2,t1)) {
+                          errorSemantico("Comparacion incompatible: '" +
+                              t1 + "' != '" + t2 + "'.");
+                      }
+                      RESULT = "logico";
+                  :}
+                | expresion:t1 MAYOR expresion:t2
+                  {:
+                      if (t1.equals("texto") || t2.equals("texto") ||
+                          t1.equals("logico") || t2.equals("logico")) {
+                          errorSemantico("Comparacion '>' invalida entre '" +
+                              t1 + "' y '" + t2 + "'.");
+                      }
+                      RESULT = "logico";
+                  :}
+                | expresion:t1 MENOR expresion:t2
+                  {:
+                      if (t1.equals("texto") || t2.equals("texto") ||
+                          t1.equals("logico") || t2.equals("logico")) {
+                          errorSemantico("Comparacion '<' invalida entre '" +
+                              t1 + "' y '" + t2 + "'.");
+                      }
+                      RESULT = "logico";
+                  :}
+                | expresion:t1 MAYOR_IGUAL expresion:t2
+                  {:
+                      if (t1.equals("texto") || t2.equals("texto") ||
+                          t1.equals("logico") || t2.equals("logico")) {
+                          errorSemantico("Comparacion '>=' invalida entre '" +
+                              t1 + "' y '" + t2 + "'.");
+                      }
+                      RESULT = "logico";
+                  :}
+                | expresion:t1 MENOR_IGUAL expresion:t2
+                  {:
+                      if (t1.equals("texto") || t2.equals("texto") ||
+                          t1.equals("logico") || t2.equals("logico")) {
+                          errorSemantico("Comparacion '<=' invalida entre '" +
+                              t1 + "' y '" + t2 + "'.");
+                      }
+                      RESULT = "logico";
+                  :}
+                | expresion:t {: RESULT = t; :}
                 ;
-

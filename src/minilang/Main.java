@@ -54,7 +54,7 @@ public class Main {
             parser = new Parser(lexer);
             lexer.setParser(parser);
 
-            System.out.println("\n  Ejecutando análisis léxico y sintáctico...");
+            System.out.println("\n  Ejecutando análisis léxico, sintáctico y semántic");
             parser.parse();
             exitoSintactico = true;
 
@@ -121,6 +121,19 @@ public class Main {
             System.out.println("=".repeat(70));
         }
 
+        // Después de errores sintácticos, antes de tabla de símbolos
+        List<String> erroresSem = (parser != null)
+                ? parser.getErroresSemanticos()
+                : new java.util.ArrayList<>();
+
+        if (!erroresSem.isEmpty()) {
+            System.out.println("\n" + "=".repeat(70));
+            System.out.println(" ERRORES SEMANTICOS DETECTADOS");
+            System.out.println("=".repeat(70));
+            erroresSem.forEach(e -> System.out.println("  ✗ " + e));
+            System.out.println("=".repeat(70));
+        }
+
         // ── Tabla de símbolos ─────────────────────────────────────────────────
         tabla.imprimir();
 
@@ -136,9 +149,10 @@ public class Main {
         System.out.printf("  Tokens reconocidos      : %d%n", validos);
         System.out.printf("  Errores léxicos         : %d%n", erroresLex.size());
         System.out.printf("  Errores sintácticos     : %d%n", erroresSint.size());
+        System.out.printf("  Errores semanticos      : %d%n", erroresSem.size());
         System.out.printf("  Identificadores únicos  : %d%n", tabla.tamanio());
-        System.out.println((exitoSintactico && erroresSint.isEmpty())
-                ? "  Estado                  : ✓ Análisis exitoso"
+        System.out.println((exitoSintactico && erroresSint.isEmpty() && erroresSem.isEmpty())
+                ? "  Estado                  : ✓ Analisis exitoso"
                 : "  Estado                  : ✗ Se encontraron errores");
         System.out.println("=".repeat(70));
     }

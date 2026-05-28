@@ -1,0 +1,21 @@
+programa Prueba <<
+
+    num x;
+    decimal y;
+    texto nombre;
+    logico activo;
+
+    x = 10;
+    y = 3.14;
+    nombre = "Hola";
+    activo = cierto;
+
+    x = "error";
+    y = nombre;
+    z = 5;
+
+    si (x) <<
+        mostrar(x);
+    >>
+
+>>
