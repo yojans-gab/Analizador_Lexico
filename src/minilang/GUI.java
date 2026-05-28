@@ -7,106 +7,183 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
-import java.util.ArrayList;
 import java.util.List;
 
 public class GUI extends JFrame {
 
-    // ── Colores ──────────────────────────────────────────────────────────────
-    private static final Color BG_DARK    = new Color(30, 31, 34);
-    private static final Color BG_PANEL   = new Color(40, 42, 46);
-    private static final Color BG_TABLE   = new Color(45, 47, 52);
-    private static final Color ACCENT     = new Color(97, 175, 239);
-    private static final Color SUCCESS    = new Color(152, 195, 121);
-    private static final Color DANGER     = new Color(224, 108, 117);
-    private static final Color WARNING    = new Color(229, 192, 123);
-    private static final Color TEXT_MAIN  = new Color(200, 200, 200);
-    private static final Color TEXT_MUTED = new Color(120, 125, 135);
-    private static final Color BORDER_COL = new Color(60, 63, 68);
+    // ── Tema actual ───────────────────────────────────────────────────────────
+    private boolean modoOscuro = true;
 
-    // ── Componentes principales ───────────────────────────────────────────────
-    private JTextArea editorArea;
-    private JLabel    lblArchivo;
+    // ── Paletas de colores ────────────────────────────────────────────────────
+    // OSCURO
+    private static final Color D_BG_DARK    = new Color(30, 31, 34);
+    private static final Color D_BG_PANEL   = new Color(40, 42, 46);
+    private static final Color D_BG_TABLE   = new Color(45, 47, 52);
+    private static final Color D_ACCENT     = new Color(97, 175, 239);
+    private static final Color D_SUCCESS    = new Color(152, 195, 121);
+    private static final Color D_DANGER     = new Color(224, 108, 117);
+    private static final Color D_WARNING    = new Color(229, 192, 123);
+    private static final Color D_TEXT_MAIN  = new Color(200, 200, 200);
+    private static final Color D_TEXT_MUTED = new Color(120, 125, 135);
+    private static final Color D_BORDER     = new Color(60, 63, 68);
+    private static final Color D_EDITOR_BG  = new Color(25, 27, 30);
+    private static final Color D_EDITOR_FG  = new Color(171, 178, 191);
+    private static final Color D_LINENUM_BG = new Color(33, 35, 39);
+    private static final Color D_LINENUM_FG = new Color(80, 85, 95);
 
-    // Stats
-    private JLabel lblTokens, lblIdentificadores, lblErrores, lblEstado;
+    // CLARO
+    private static final Color L_BG_DARK    = new Color(245, 246, 248);
+    private static final Color L_BG_PANEL   = new Color(255, 255, 255);
+    private static final Color L_BG_TABLE   = new Color(252, 252, 253);
+    private static final Color L_ACCENT     = new Color(30, 100, 200);
+    private static final Color L_SUCCESS    = new Color(39, 120, 60);
+    private static final Color L_DANGER     = new Color(180, 40, 40);
+    private static final Color L_WARNING    = new Color(160, 100, 0);
+    private static final Color L_TEXT_MAIN  = new Color(30, 30, 35);
+    private static final Color L_TEXT_MUTED = new Color(120, 125, 140);
+    private static final Color L_BORDER     = new Color(210, 213, 220);
+    private static final Color L_EDITOR_BG  = new Color(250, 251, 252);
+    private static final Color L_EDITOR_FG  = new Color(40, 44, 52);
+    private static final Color L_LINENUM_BG = new Color(238, 240, 244);
+    private static final Color L_LINENUM_FG = new Color(150, 155, 165);
 
-    // Tablas
-    private DefaultTableModel modelTokens, modelSimbolos, modelErrores;
-    private JTable            tablaTokens, tablaSimbolos, tablaErrores;
+    // ── Colores activos (cambian con el tema) ─────────────────────────────────
+    private Color BG_DARK, BG_PANEL, BG_TABLE, ACCENT, SUCCESS, DANGER,
+            WARNING, TEXT_MAIN, TEXT_MUTED, BORDER_COL,
+            EDITOR_BG, EDITOR_FG, LINENUM_BG, LINENUM_FG;
 
-    // Panel de vistas con CardLayout
-    private JPanel    cardPanel;
+    // ── Componentes que se repintan al cambiar tema ───────────────────────────
+    private JTextArea  editorArea, lineNums;
+    private JLabel     lblArchivo, lblTokens, lblIdentificadores,
+            lblErrores, lblEstado;
+    private JPanel     headerPanel, statusPanel, editorPanel,
+            resultPanel, cardPanel, tabsPanel;
+    private JButton    btnAnalizar, btnAbrir, btnTema,
+            btnTok, btnSim, btnLex, btnSint, btnSem;
+    private JScrollPane editorScroll;
+
+    private DefaultTableModel modelTokens, modelSimbolos,
+            modelErrLex, modelErrSint, modelErrSem;
+    private JTable tablaTokens, tablaSimbolos,
+            tablaErrLex, tablaErrSint, tablaErrSem;
+    private JScrollPane spTokens, spSimbolos, spErrLex, spErrSint, spErrSem;
+
     private CardLayout cardLayout;
+    private JButton tabActivo;
 
-    // Datos del análisis
-    private List<Token>  tokensResultado  = new ArrayList<>();
-    private List<Token>  erroresResultado = new ArrayList<>();
-    private TablaSimbolos tablaSimbolos2  = TablaSimbolos.getInstance();
-
-    // ─────────────────────────────────────────────────────────────────────────
+    // ── Constructor ───────────────────────────────────────────────────────────
     public GUI() {
-        setTitle("Analizador Léxico TurboX");
+        setTitle("Compilador TurboX");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1100, 720);
-        setMinimumSize(new Dimension(900, 600));
+        setSize(1200, 750);
+        setMinimumSize(new Dimension(1000, 620));
         setLocationRelativeTo(null);
+        aplicarPaleta();
+        setLayout(new BorderLayout());
+        buildUI();
+    }
+
+    // ── Aplica la paleta correcta según el modo ───────────────────────────────
+    private void aplicarPaleta() {
+        if (modoOscuro) {
+            BG_DARK    = D_BG_DARK;    BG_PANEL   = D_BG_PANEL;
+            BG_TABLE   = D_BG_TABLE;   ACCENT     = D_ACCENT;
+            SUCCESS    = D_SUCCESS;    DANGER     = D_DANGER;
+            WARNING    = D_WARNING;    TEXT_MAIN  = D_TEXT_MAIN;
+            TEXT_MUTED = D_TEXT_MUTED; BORDER_COL = D_BORDER;
+            EDITOR_BG  = D_EDITOR_BG;  EDITOR_FG  = D_EDITOR_FG;
+            LINENUM_BG = D_LINENUM_BG; LINENUM_FG = D_LINENUM_FG;
+        } else {
+            BG_DARK    = L_BG_DARK;    BG_PANEL   = L_BG_PANEL;
+            BG_TABLE   = L_BG_TABLE;   ACCENT     = L_ACCENT;
+            SUCCESS    = L_SUCCESS;    DANGER     = L_DANGER;
+            WARNING    = L_WARNING;    TEXT_MAIN  = L_TEXT_MAIN;
+            TEXT_MUTED = L_TEXT_MUTED; BORDER_COL = L_BORDER;
+            EDITOR_BG  = L_EDITOR_BG;  EDITOR_FG  = L_EDITOR_FG;
+            LINENUM_BG = L_LINENUM_BG; LINENUM_FG = L_LINENUM_FG;
+        }
+    }
+
+    // ── Construye toda la UI ──────────────────────────────────────────────────
+    private void buildUI() {
+        getContentPane().removeAll();
         getContentPane().setBackground(BG_DARK);
-        setLayout(new BorderLayout(0, 0));
 
         add(buildHeader(),    BorderLayout.NORTH);
         add(buildCenter(),    BorderLayout.CENTER);
         add(buildStatusBar(), BorderLayout.SOUTH);
+
+        revalidate();
+        repaint();
+    }
+
+    // ── Cambia el tema y repinta todo ─────────────────────────────────────────
+    private void toggleTema() {
+        modoOscuro = !modoOscuro;
+        aplicarPaleta();
+        buildUI();
+        if (tabActivo != null) resaltarTab(tabActivo);
     }
 
     // ── HEADER ────────────────────────────────────────────────────────────────
     private JPanel buildHeader() {
-        JPanel p = darkPanel(new BorderLayout(16, 0));
-        p.setBorder(new CompoundBorder(
+        headerPanel = darkPanel(new BorderLayout(16, 0));
+        headerPanel.setBorder(new CompoundBorder(
                 new MatteBorder(0, 0, 1, 0, BORDER_COL),
-                new EmptyBorder(14, 20, 14, 20)
+                new EmptyBorder(12, 20, 12, 20)
         ));
 
-        // Título
-        JLabel title = new JLabel("Analizador Léxico TurboX");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        // Título + botón tema
+        JPanel izq = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
+        izq.setOpaque(false);
+
+        JLabel title = new JLabel("Compilador TurboX");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 17));
         title.setForeground(TEXT_MAIN);
 
+        btnTema = new JButton(modoOscuro ? "☀ Modo Claro" : "☾ Modo Oscuro");
+        btnTema.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnTema.setBackground(BG_PANEL);
+        btnTema.setForeground(ACCENT);
+        btnTema.setFocusPainted(false);
+        btnTema.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(BORDER_COL),
+                new EmptyBorder(4, 12, 4, 12)
+        ));
+        btnTema.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        btnTema.addActionListener(e -> toggleTema());
+
+        izq.add(title);
+        izq.add(btnTema);
+
         // Stats
-        JPanel stats = new JPanel(new FlowLayout(FlowLayout.RIGHT, 24, 0));
+        JPanel stats = new JPanel(new FlowLayout(FlowLayout.RIGHT, 28, 0));
         stats.setOpaque(false);
-        lblTokens         = statLabel("0", "TOKENS");
-        lblIdentificadores= statLabel("0", "IDENTIFICADORES");
-        lblErrores        = statLabel("0", "ERRORES");
+        lblTokens          = statLabel("0", "TOKENS");
+        lblIdentificadores = statLabel("0", "SÍMBOLOS");
+        lblErrores         = statLabel("0", "ERRORES");
         stats.add(lblTokens);
         stats.add(lblIdentificadores);
         stats.add(lblErrores);
 
-        p.add(title, BorderLayout.WEST);
-        p.add(stats,  BorderLayout.EAST);
-        return p;
+        headerPanel.add(izq,   BorderLayout.WEST);
+        headerPanel.add(stats, BorderLayout.EAST);
+        return headerPanel;
     }
 
     private JLabel statLabel(String val, String label) {
         JPanel box = new JPanel();
         box.setLayout(new BoxLayout(box, BoxLayout.Y_AXIS));
         box.setOpaque(false);
-
         JLabel lVal = new JLabel(val, SwingConstants.CENTER);
-        lVal.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lVal.setFont(new Font("Segoe UI", Font.BOLD, 24));
         lVal.setForeground(label.equals("ERRORES") ? DANGER : ACCENT);
         lVal.setAlignmentX(Component.CENTER_ALIGNMENT);
-
         JLabel lLbl = new JLabel(label, SwingConstants.CENTER);
         lLbl.setFont(new Font("Segoe UI", Font.PLAIN, 10));
         lLbl.setForeground(TEXT_MUTED);
         lLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        box.add(lVal);
-        box.add(lLbl);
-
-        // Guardamos referencia al JLabel del valor para actualizarlo
-        lVal.setName(label);
+        box.add(lVal); box.add(lLbl);
         return lVal;
     }
 
@@ -117,113 +194,132 @@ public class GUI extends JFrame {
                 buildEditorPanel(),
                 buildResultsPanel()
         );
-        split.setDividerLocation(420);
+        split.setDividerLocation(440);
         split.setDividerSize(4);
         split.setBorder(null);
         split.setBackground(BG_DARK);
         return split;
     }
 
-    // Panel izquierdo: editor + botones
+    // ── EDITOR ────────────────────────────────────────────────────────────────
     private JPanel buildEditorPanel() {
-        JPanel p = darkPanel(new BorderLayout(0, 8));
-        p.setBorder(new EmptyBorder(12, 16, 12, 8));
+        editorPanel = darkPanel(new BorderLayout(0, 8));
+        editorPanel.setBorder(new EmptyBorder(12, 16, 12, 8));
 
-        // Barra de archivo
-        JPanel barraArchivo = new JPanel(new BorderLayout(8, 0));
-        barraArchivo.setOpaque(false);
-
+        // Barra superior
+        JPanel barra = new JPanel(new BorderLayout(8, 0));
+        barra.setOpaque(false);
         lblArchivo = new JLabel("Sin archivo cargado");
         lblArchivo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblArchivo.setForeground(TEXT_MUTED);
-
-        JButton btnAbrir = accentButton("Abrir archivo");
+        btnAbrir = accentButton("Abrir .txt");
         btnAbrir.addActionListener(e -> abrirArchivo());
+        barra.add(lblArchivo, BorderLayout.CENTER);
+        barra.add(btnAbrir,   BorderLayout.EAST);
 
-        barraArchivo.add(lblArchivo,  BorderLayout.CENTER);
-        barraArchivo.add(btnAbrir,    BorderLayout.EAST);
-
-        // Editor
-        editorArea = new JTextArea(EJEMPLO_PROGRAMA);
+        // Editor de código
+        String textoActual = (editorArea != null)
+                ? editorArea.getText() : EJEMPLO_PROGRAMA;
+        editorArea = new JTextArea(textoActual);
         editorArea.setFont(new Font("JetBrains Mono", Font.PLAIN, 13));
-        editorArea.setBackground(new Color(25, 27, 30));
-        editorArea.setForeground(new Color(171, 178, 191));
-        editorArea.setCaretColor(Color.WHITE);
+        editorArea.setBackground(EDITOR_BG);
+        editorArea.setForeground(EDITOR_FG);
+        editorArea.setCaretColor(modoOscuro ? Color.WHITE : Color.BLACK);
         editorArea.setLineWrap(false);
         editorArea.setBorder(new EmptyBorder(10, 12, 10, 12));
         editorArea.setTabSize(4);
+        editorArea.setSelectionColor(modoOscuro
+                ? new Color(70, 90, 130) : new Color(180, 210, 255));
 
-        JScrollPane scroll = new JScrollPane(editorArea);
-        scroll.setBorder(BorderFactory.createLineBorder(BORDER_COL));
-        scroll.getViewport().setBackground(new Color(25, 27, 30));
+        lineNums = new JTextArea("1");
+        lineNums.setBackground(LINENUM_BG);
+        lineNums.setForeground(LINENUM_FG);
+        lineNums.setFont(new Font("JetBrains Mono", Font.PLAIN, 13));
+        lineNums.setEditable(false);
+        lineNums.setBorder(new EmptyBorder(10, 8, 10, 8));
 
-        // Número de líneas
-        JTextArea lineNumbers = new JTextArea("1");
-        lineNumbers.setBackground(new Color(33, 35, 39));
-        lineNumbers.setForeground(new Color(80, 85, 95));
-        lineNumbers.setFont(new Font("JetBrains Mono", Font.PLAIN, 13));
-        lineNumbers.setEditable(false);
-        lineNumbers.setBorder(new EmptyBorder(10, 8, 10, 8));
-        scroll.setRowHeaderView(lineNumbers);
+        editorScroll = new JScrollPane(editorArea);
+        editorScroll.setBorder(BorderFactory.createLineBorder(BORDER_COL));
+        editorScroll.getViewport().setBackground(EDITOR_BG);
+        editorScroll.setRowHeaderView(lineNums);
 
-        editorArea.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e)  { updateLineNumbers(lineNumbers); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e)  { updateLineNumbers(lineNumbers); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { updateLineNumbers(lineNumbers); }
-        });
-        updateLineNumbers(lineNumbers);
+        editorArea.getDocument().addDocumentListener(
+                new javax.swing.event.DocumentListener() {
+                    public void insertUpdate(javax.swing.event.DocumentEvent e)  { updateLineNumbers(); }
+                    public void removeUpdate(javax.swing.event.DocumentEvent e)  { updateLineNumbers(); }
+                    public void changedUpdate(javax.swing.event.DocumentEvent e) { updateLineNumbers(); }
+                });
+        updateLineNumbers();
 
         // Botón analizar
-        JButton btnAnalizar = new JButton("▶  Ejecutar análisis");
+        btnAnalizar = new JButton("▶  Ejecutar análisis completo");
         btnAnalizar.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btnAnalizar.setBackground(ACCENT);
-        btnAnalizar.setForeground(new Color(25, 27, 30));
+        btnAnalizar.setForeground(modoOscuro
+                ? new Color(25, 27, 30) : Color.WHITE);
         btnAnalizar.setFocusPainted(false);
         btnAnalizar.setBorderPainted(false);
         btnAnalizar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         btnAnalizar.setBorder(new EmptyBorder(10, 0, 10, 0));
         btnAnalizar.addActionListener(e -> ejecutarAnalisis());
 
-        p.add(barraArchivo, BorderLayout.NORTH);
-        p.add(scroll,       BorderLayout.CENTER);
-        p.add(btnAnalizar,  BorderLayout.SOUTH);
-        return p;
+        editorPanel.add(barra,       BorderLayout.NORTH);
+        editorPanel.add(editorScroll, BorderLayout.CENTER);
+        editorPanel.add(btnAnalizar,  BorderLayout.SOUTH);
+        return editorPanel;
     }
 
-    // Panel derecho: tabs + tablas
+    // ── PANEL DE RESULTADOS ───────────────────────────────────────────────────
     private JPanel buildResultsPanel() {
-        JPanel p = darkPanel(new BorderLayout(0, 0));
-        p.setBorder(new EmptyBorder(12, 8, 12, 16));
+        resultPanel = darkPanel(new BorderLayout());
+        resultPanel.setBorder(new EmptyBorder(12, 8, 12, 16));
 
         // Tabs
-        JPanel tabs = new JPanel(new GridLayout(1, 3, 4, 0));
-        tabs.setOpaque(false);
-        tabs.setBorder(new EmptyBorder(0, 0, 8, 0));
+        tabsPanel = new JPanel(new GridLayout(1, 5, 4, 0));
+        tabsPanel.setOpaque(false);
+        tabsPanel.setBorder(new EmptyBorder(0, 0, 8, 0));
 
-        JButton btnTok = tabButton("Tokens",        "tokens");
-        JButton btnSim = tabButton("Símbolos",      "simbolos");
-        JButton btnErr = tabButton("Errores",        "errores");
+        btnTok  = tabButton("Tokens");
+        btnSim  = tabButton("Símbolos");
+        btnLex  = tabButton("Err. Léxico");
+        btnSint = tabButton("Err. Sintáctico");
+        btnSem  = tabButton("Err. Semántico");
 
-        tabs.add(btnTok);
-        tabs.add(btnSim);
-        tabs.add(btnErr);
+        tabsPanel.add(btnTok);
+        tabsPanel.add(btnSim);
+        tabsPanel.add(btnLex);
+        tabsPanel.add(btnSint);
+        tabsPanel.add(btnSem);
 
-        // CardLayout para las tres vistas
         cardLayout = new CardLayout();
         cardPanel  = new JPanel(cardLayout);
         cardPanel.setOpaque(false);
 
-        cardPanel.add(buildTablaPanel(initTablaTokens()),    "tokens");
-        cardPanel.add(buildTablaPanel(initTablaSimbolos()),  "simbolos");
-        cardPanel.add(buildTablaPanel(initTablaErrores()),   "errores");
+        // Crear tablas
+        spTokens  = buildTablaPanel(initTablaTokens());
+        spSimbolos= buildTablaPanel(initTablaSimbolos());
+        spErrLex  = buildTablaPanel(initTablaErrLex());
+        spErrSint = buildTablaPanel(initTablaErrSint());
+        spErrSem  = buildTablaPanel(initTablaErrSem());
 
-        btnTok.addActionListener(e -> cardLayout.show(cardPanel, "tokens"));
-        btnSim.addActionListener(e -> cardLayout.show(cardPanel, "simbolos"));
-        btnErr.addActionListener(e -> { cardLayout.show(cardPanel, "errores"); });
+        cardPanel.add(spTokens,   "tokens");
+        cardPanel.add(spSimbolos, "simbolos");
+        cardPanel.add(spErrLex,   "errlex");
+        cardPanel.add(spErrSint,  "errsint");
+        cardPanel.add(spErrSem,   "errsem");
 
-        p.add(tabs,      BorderLayout.NORTH);
-        p.add(cardPanel, BorderLayout.CENTER);
-        return p;
+        btnTok.addActionListener(e  -> { cardLayout.show(cardPanel,"tokens");   resaltarTab(btnTok); });
+        btnSim.addActionListener(e  -> { cardLayout.show(cardPanel,"simbolos"); resaltarTab(btnSim); });
+        btnLex.addActionListener(e  -> { cardLayout.show(cardPanel,"errlex");   resaltarTab(btnLex); });
+        btnSint.addActionListener(e -> { cardLayout.show(cardPanel,"errsint");  resaltarTab(btnSint); });
+        btnSem.addActionListener(e  -> { cardLayout.show(cardPanel,"errsem");   resaltarTab(btnSem); });
+
+        tabActivo = btnTok;
+        resaltarTab(btnTok);
+
+        resultPanel.add(tabsPanel, BorderLayout.NORTH);
+        resultPanel.add(cardPanel, BorderLayout.CENTER);
+        return resultPanel;
     }
 
     private JScrollPane buildTablaPanel(JTable t) {
@@ -236,11 +332,11 @@ public class GUI extends JFrame {
     // ── TABLAS ────────────────────────────────────────────────────────────────
     private JTable initTablaTokens() {
         modelTokens = new DefaultTableModel(
-                new String[]{"Token", "Lexema", "Línea", "Columna"}, 0
-        ) { public boolean isCellEditable(int r, int c){return false;} };
+                new String[]{"Token","Lexema","Línea","Columna"}, 0
+        ) { public boolean isCellEditable(int r,int c){return false;} };
         tablaTokens = styledTable(modelTokens);
-        tablaTokens.getColumnModel().getColumn(0).setPreferredWidth(160);
-        tablaTokens.getColumnModel().getColumn(1).setPreferredWidth(120);
+        tablaTokens.getColumnModel().getColumn(0).setPreferredWidth(170);
+        tablaTokens.getColumnModel().getColumn(1).setPreferredWidth(130);
         tablaTokens.getColumnModel().getColumn(2).setPreferredWidth(55);
         tablaTokens.getColumnModel().getColumn(3).setPreferredWidth(65);
         return tablaTokens;
@@ -248,45 +344,67 @@ public class GUI extends JFrame {
 
     private JTable initTablaSimbolos() {
         modelSimbolos = new DefaultTableModel(
-                new String[]{"Identificador", "Línea", "Columna"}, 0
-        ) { public boolean isCellEditable(int r, int c){return false;} };
+                new String[]{"Identificador","Tipo","Línea","Columna"}, 0
+        ) { public boolean isCellEditable(int r,int c){return false;} };
         tablaSimbolos = styledTable(modelSimbolos);
         return tablaSimbolos;
     }
 
-    private JTable initTablaErrores() {
-        modelErrores = new DefaultTableModel(
-                new String[]{"Línea", "Columna", "Descripción"}, 0
-        ) { public boolean isCellEditable(int r, int c){return false;} };
-        tablaErrores = styledTable(modelErrores);
-        tablaErrores.getColumnModel().getColumn(0).setPreferredWidth(55);
-        tablaErrores.getColumnModel().getColumn(1).setPreferredWidth(65);
-        tablaErrores.getColumnModel().getColumn(2).setPreferredWidth(250);
-        return tablaErrores;
+    private JTable initTablaErrLex() {
+        modelErrLex = new DefaultTableModel(
+                new String[]{"Línea","Columna","Descripción"}, 0
+        ) { public boolean isCellEditable(int r,int c){return false;} };
+        tablaErrLex = styledTable(modelErrLex);
+        tablaErrLex.getColumnModel().getColumn(0).setPreferredWidth(55);
+        tablaErrLex.getColumnModel().getColumn(1).setPreferredWidth(65);
+        tablaErrLex.getColumnModel().getColumn(2).setPreferredWidth(300);
+        return tablaErrLex;
+    }
+
+    private JTable initTablaErrSint() {
+        modelErrSint = new DefaultTableModel(
+                new String[]{"#","Descripción"}, 0
+        ) { public boolean isCellEditable(int r,int c){return false;} };
+        tablaErrSint = styledTable(modelErrSint);
+        tablaErrSint.getColumnModel().getColumn(0).setPreferredWidth(40);
+        tablaErrSint.getColumnModel().getColumn(1).setPreferredWidth(380);
+        return tablaErrSint;
+    }
+
+    private JTable initTablaErrSem() {
+        modelErrSem = new DefaultTableModel(
+                new String[]{"#","Descripción"}, 0
+        ) { public boolean isCellEditable(int r,int c){return false;} };
+        tablaErrSem = styledTable(modelErrSem);
+        tablaErrSem.getColumnModel().getColumn(0).setPreferredWidth(40);
+        tablaErrSem.getColumnModel().getColumn(1).setPreferredWidth(380);
+        return tablaErrSem;
     }
 
     // ── STATUS BAR ────────────────────────────────────────────────────────────
     private JPanel buildStatusBar() {
-        JPanel p = darkPanel(new BorderLayout());
-        p.setBorder(new CompoundBorder(
+        statusPanel = darkPanel(new BorderLayout());
+        statusPanel.setBorder(new CompoundBorder(
                 new MatteBorder(1, 0, 0, 0, BORDER_COL),
                 new EmptyBorder(8, 20, 8, 20)
         ));
-        lblEstado = new JLabel("Listo — escribe o carga un archivo y presiona Ejecutar análisis");
+        lblEstado = new JLabel("Listo — escribe código o carga un archivo .txt");
         lblEstado.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         lblEstado.setForeground(TEXT_MUTED);
-        p.add(lblEstado, BorderLayout.WEST);
-        return p;
+        statusPanel.add(lblEstado, BorderLayout.WEST);
+        return statusPanel;
     }
 
     // ── LÓGICA PRINCIPAL ──────────────────────────────────────────────────────
     private void abrirArchivo() {
         JFileChooser fc = new JFileChooser();
-        fc.setFileFilter(new FileNameExtensionFilter("Archivos de texto (*.txt)", "txt"));
+        fc.setFileFilter(new FileNameExtensionFilter(
+                "Archivos de texto (*.txt)", "txt"));
         if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File f = fc.getSelectedFile();
             try {
-                String contenido = new String(java.nio.file.Files.readAllBytes(f.toPath()));
+                String contenido = new String(
+                        java.nio.file.Files.readAllBytes(f.toPath()));
                 editorArea.setText(contenido);
                 lblArchivo.setText(f.getName());
                 lblArchivo.setForeground(SUCCESS);
@@ -299,66 +417,92 @@ public class GUI extends JFrame {
     }
 
     private void ejecutarAnalisis() {
-        tokensResultado.clear();
-        erroresResultado.clear();
-        tablaSimbolos2.limpiar();
-
         modelTokens.setRowCount(0);
         modelSimbolos.setRowCount(0);
-        modelErrores.setRowCount(0);
+        modelErrLex.setRowCount(0);
+        modelErrSint.setRowCount(0);
+        modelErrSem.setRowCount(0);
+
+        TablaSimbolos ts = TablaSimbolos.getInstance();
+        ts.limpiar();
+        CupHelper.limpiar();
 
         String fuente = editorArea.getText();
+        Lexer   lexer  = null;
+        Parser  parser = null;
+        boolean exitoSintactico = false;
 
-        // Usa el mismo Lexer que tu consola
-        try (Reader reader = new java.io.StringReader(fuente)) {
-            Lexer lexer = new Lexer(reader);
-            Token t;
-            while (true) {
-                t = lexer.yylex();
-                if (t == null) break;
-                if (t.esEOF()) { tokensResultado.add(t); break; }
-                if (t.esError()) {
-                    erroresResultado.add(t);
-                    modelErrores.addRow(new Object[]{
-                            t.getLinea(), t.getColumna(),
-                            "Carácter no reconocido: '" + t.getValor() + "'"
-                    });
-                } else {
-                    tokensResultado.add(t);
+        try (Reader reader = new StringReader(fuente)) {
+            lexer  = new Lexer(reader);
+            parser = new Parser(lexer);
+            lexer.setParser(parser);
+            parser.parse();
+            exitoSintactico = true;
+        } catch (Exception ignored) {}
+
+        if (lexer != null) {
+            for (Token t : lexer.tokensReconocidos) {
+                if (!t.esEOF()) {
                     modelTokens.addRow(new Object[]{
-                            t.getTipo(), t.getValor(), t.getLinea(), t.getColumna()
+                            t.getTipo(), t.getLexema(),
+                            t.getLinea(), t.getColumna()
                     });
                 }
             }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this,
-                    "Error en el análisis: " + ex.getMessage(),
-                    "Error", JOptionPane.ERROR_MESSAGE);
-            return;
+            for (Token err : lexer.erroresLexicos) {
+                modelErrLex.addRow(new Object[]{
+                        err.getLinea(), err.getColumna(),
+                        "Carácter no reconocido: '" + err.getLexema() + "'"
+                });
+            }
         }
 
-        // Llenar tabla de símbolos
-        tablaSimbolos2.getTabla().forEach((nombre, tok) ->
+        if (parser != null) {
+            List<String> errSint = parser.getErroresSintacticos();
+            for (int i = 0; i < errSint.size(); i++)
+                modelErrSint.addRow(new Object[]{ i+1, errSint.get(i) });
+        }
+
+        List<String> errSem = CupHelper.getErroresSemanticos();
+        for (int i = 0; i < errSem.size(); i++)
+            modelErrSem.addRow(new Object[]{ i+1, errSem.get(i) });
+
+        ts.getTabla().forEach((nombre, tok) -> {
+            String tipo = ts.getTipo(nombre);
+            if (tipo != null && !tipo.equals("desconocido")
+                    && !tipo.equals("programa")) {
                 modelSimbolos.addRow(new Object[]{
-                        nombre, tok.getLinea(), tok.getColumna()
-                })
-        );
+                        nombre, tipo, tok.getLinea(), tok.getColumna()
+                });
+            }
+        });
 
-        // Actualizar stats
-        long validos = tokensResultado.stream()
-                .filter(tk -> !tk.esEOF()).count();
-        actualizarStat(lblTokens,          String.valueOf(validos));
-        actualizarStat(lblIdentificadores, String.valueOf(tablaSimbolos2.tamanio()));
-        actualizarStat(lblErrores,         String.valueOf(erroresResultado.size()));
+        int totalTokens  = modelTokens.getRowCount();
+        int totalSimbol  = modelSimbolos.getRowCount();
+        int totalErrores = modelErrLex.getRowCount()
+                + modelErrSint.getRowCount()
+                + modelErrSem.getRowCount();
 
-        // Estado
-        if (erroresResultado.isEmpty()) {
+        lblTokens.setText(String.valueOf(totalTokens));
+        lblIdentificadores.setText(String.valueOf(totalSimbol));
+        lblErrores.setText(String.valueOf(totalErrores));
+
+        if (totalErrores == 0 && exitoSintactico) {
             lblEstado.setText("✓  Análisis completado sin errores");
             lblEstado.setForeground(SUCCESS);
         } else {
-            lblEstado.setText("✗  Se encontraron " + erroresResultado.size() + " error(es) léxico(s)");
+            lblEstado.setText("✗  " + totalErrores + " error(es): " +
+                    modelErrLex.getRowCount()  + " léxicos, " +
+                    modelErrSint.getRowCount() + " sintácticos, " +
+                    modelErrSem.getRowCount()  + " semánticos");
             lblEstado.setForeground(DANGER);
         }
+
+        // Navegar automáticamente a la pestaña con errores
+        if (modelErrSem.getRowCount() > 0)       { cardLayout.show(cardPanel,"errsem");  resaltarTab(btnSem); }
+        else if (modelErrSint.getRowCount() > 0)  { cardLayout.show(cardPanel,"errsint"); resaltarTab(btnSint); }
+        else if (modelErrLex.getRowCount() > 0)   { cardLayout.show(cardPanel,"errlex");  resaltarTab(btnLex); }
+        else                                       { cardLayout.show(cardPanel,"tokens");  resaltarTab(btnTok); }
     }
 
     // ── HELPERS DE UI ─────────────────────────────────────────────────────────
@@ -382,20 +526,25 @@ public class GUI extends JFrame {
         return b;
     }
 
-    private JButton tabButton(String text, String card) {
+    private JButton tabButton(String text) {
         JButton b = new JButton(text);
-        b.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        b.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         b.setBackground(BG_PANEL);
-        b.setForeground(TEXT_MAIN);
+        b.setForeground(TEXT_MUTED);
         b.setFocusPainted(false);
         b.setBorderPainted(false);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        b.setBorder(new EmptyBorder(7, 0, 7, 0));
-        b.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) { b.setBackground(BG_TABLE); }
-            public void mouseExited(MouseEvent e)  { b.setBackground(BG_PANEL); }
-        });
+        b.setBorder(new EmptyBorder(7, 4, 7, 4));
         return b;
+    }
+
+    private void resaltarTab(JButton activo) {
+        tabActivo = activo;
+        for (JButton b : new JButton[]{btnTok,btnSim,btnLex,btnSint,btnSem}) {
+            if (b == null) continue;
+            b.setForeground(b == activo ? ACCENT     : TEXT_MUTED);
+            b.setBackground(b == activo ? BG_TABLE   : BG_PANEL);
+        }
     }
 
     private JTable styledTable(DefaultTableModel model) {
@@ -407,8 +556,9 @@ public class GUI extends JFrame {
         t.setGridColor(BORDER_COL);
         t.setShowHorizontalLines(true);
         t.setShowVerticalLines(false);
-        t.setSelectionBackground(new Color(19, 236, 203));
-        t.setSelectionForeground(Color.WHITE);
+        t.setSelectionBackground(modoOscuro
+                ? new Color(55,65,85) : new Color(180,210,255));
+        t.setSelectionForeground(modoOscuro ? Color.WHITE : Color.BLACK);
         t.setFillsViewportHeight(true);
         t.setIntercellSpacing(new Dimension(0, 0));
 
@@ -416,28 +566,35 @@ public class GUI extends JFrame {
         header.setBackground(BG_PANEL);
         header.setForeground(TEXT_MUTED);
         header.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        header.setBorder(new MatteBorder(0, 0, 1, 0, BORDER_COL));
+        header.setBorder(new MatteBorder(0,0,1,0,BORDER_COL));
         header.setReorderingAllowed(false);
 
-        // Renderer con colores por tipo de token
+        Color ROW_ALT = modoOscuro
+                ? new Color(42,44,49) : new Color(245,246,250);
+
         t.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
-            public Component getTableCellRendererComponent(JTable tbl, Object val,
-                                                           boolean sel, boolean foc, int row, int col) {
-                super.getTableCellRendererComponent(tbl, val, sel, foc, row, col);
-                setBackground(sel ? new Color(55,65,85) : (row%2==0 ? BG_TABLE : new Color(42,44,49)));
-                setBorder(new EmptyBorder(0, 12, 0, 12));
-                if (!sel && col == 0 && tbl == tablaTokens) {
-                    String tipo = val != null ? val.toString() : "";
-                    if (tipo.startsWith("PR_"))                     setForeground(new Color(198,120,221));
-                    else if (tipo.equals("ID"))                     setForeground(ACCENT);
-                    else if (tipo.contains("LITERAL"))              setForeground(SUCCESS);
-                    else if (tipo.equals("ERROR"))                  setForeground(DANGER);
-                    else if (tipo.equals("EOF"))                    setForeground(TEXT_MUTED);
-                    else                                            setForeground(WARNING);
-                } else if (!sel && tbl == tablaErrores) {
-                    setForeground(DANGER);
-                } else if (!sel) {
-                    setForeground(TEXT_MAIN);
+            public Component getTableCellRendererComponent(JTable tbl,
+                                                           Object val, boolean sel, boolean foc, int row, int col) {
+                super.getTableCellRendererComponent(tbl,val,sel,foc,row,col);
+                setBackground(sel ? t.getSelectionBackground()
+                        : (row%2==0 ? BG_TABLE : ROW_ALT));
+                setBorder(new EmptyBorder(0,12,0,12));
+                if (!sel) {
+                    if (tbl == tablaTokens && col == 0) {
+                        String tipo = val!=null ? val.toString() : "";
+                        if      (tipo.startsWith("PR_"))   setForeground(modoOscuro ? new Color(198,120,221) : new Color(130,40,180));
+                        else if (tipo.equals("ID"))        setForeground(ACCENT);
+                        else if (tipo.contains("LITERAL")) setForeground(SUCCESS);
+                        else if (tipo.equals("ERROR"))     setForeground(DANGER);
+                        else if (tipo.equals("EOF"))       setForeground(TEXT_MUTED);
+                        else                               setForeground(WARNING);
+                    } else if (tbl==tablaErrLex || tbl==tablaErrSint || tbl==tablaErrSem) {
+                        setForeground(col==0 ? TEXT_MUTED : DANGER);
+                    } else if (tbl==tablaSimbolos && col==1) {
+                        setForeground(ACCENT);
+                    } else {
+                        setForeground(TEXT_MAIN);
+                    }
                 }
                 return this;
             }
@@ -445,15 +602,12 @@ public class GUI extends JFrame {
         return t;
     }
 
-    private void actualizarStat(JLabel lbl, String val) {
-        lbl.setText(val);
-    }
-
-    private void updateLineNumbers(JTextArea nums) {
+    private void updateLineNumbers() {
+        if (editorArea == null || lineNums == null) return;
         int lines = editorArea.getLineCount();
         StringBuilder sb = new StringBuilder();
         for (int i = 1; i <= lines; i++) sb.append(i).append("\n");
-        nums.setText(sb.toString());
+        lineNums.setText(sb.toString());
     }
 
     // ── EJEMPLO POR DEFECTO ───────────────────────────────────────────────────
@@ -468,16 +622,16 @@ public class GUI extends JFrame {
                     "    nombre = \"Luis\";\n" +
                     "    activo = cierto;\n\n" +
                     "    mostrar(nombre);\n\n" +
-                    "    si (x > 5) ??\n" +
+                    "    si (x > 5) <<\n" +
                     "        mostrar(\"Mayor\");\n" +
-                    "    !!\n\n" +
-                    "    @\n\n" +
+                    "    >>\n\n" +
                     ">>";
 
-    // ── MAIN de la GUI ────────────────────────────────────────────────────────
+    // ── MAIN ──────────────────────────────────────────────────────────────────
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
+            try { UIManager.setLookAndFeel(
+                    UIManager.getSystemLookAndFeelClassName()); }
             catch (Exception ignored) {}
             new GUI().setVisible(true);
         });
