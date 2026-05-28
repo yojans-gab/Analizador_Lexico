@@ -407,7 +407,7 @@ public class GUI extends JFrame {
         t.setGridColor(BORDER_COL);
         t.setShowHorizontalLines(true);
         t.setShowVerticalLines(false);
-        t.setSelectionBackground(new Color(55, 65, 85));
+        t.setSelectionBackground(new Color(19, 236, 203));
         t.setSelectionForeground(Color.WHITE);
         t.setFillsViewportHeight(true);
         t.setIntercellSpacing(new Dimension(0, 0));

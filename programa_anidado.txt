@@ -1,0 +1,38 @@
+programa Anidado <<
+
+    num x;
+    num y;
+    logico encontrado;
+
+    x = 10;
+    y = 5;
+    encontrado = falso;
+
+    si (x > 0) <<
+        si (y > 0) <<
+            mostrar("x e y son positivos");
+            si (x > y) <<
+                mostrar("x es mayor que y");
+                encontrado = cierto;
+            >> sino <<
+                mostrar("y es mayor o igual que x");
+            >>
+        >> sino <<
+            mostrar("y no es positivo");
+        >>
+    >>
+
+    mientras (x > 0) <<
+        x = x - 1;
+        si (x == 5) <<
+            mostrar("x llego a 5");
+        >>
+        mientras (y > 0) <<
+            y = y - 1;
+            mostrar(y);
+        >>
+    >>
+
+    mostrar(encontrado);
+
+>>

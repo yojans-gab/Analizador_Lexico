@@ -1,34 +1,28 @@
 package minilang;
 
 import java.io.*;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-/**
- * Interfaz de consola para el Analizador Léxico de MiniLang.
- * Solicita la ruta del archivo interactivamente si no se pasa como argumento.
- */
 public class Main {
 
     public static void main(String[] args) {
 
         String rutaArchivo;
 
-
         if (args.length >= 1) {
             rutaArchivo = args[0];
         } else {
             Scanner scanner = new Scanner(System.in);
             System.out.println("=".repeat(70));
-            System.out.println("  ANALIZADOR LÉXICO - MiniLang");
+            System.out.println("  COMPILADOR TURBO X");
             System.out.println("=".repeat(70));
             System.out.print("\n  Ingresa la ruta del archivo a analizar: ");
             rutaArchivo = scanner.nextLine().trim();
             scanner.close();
         }
 
-        // Validar archivo
+        // ── Validar archivo ───────────────────────────────────────────────────
         File archivo = new File(rutaArchivo);
         if (!archivo.exists()) {
             System.err.println("[ERROR] El archivo no existe: " + rutaArchivo);
@@ -40,44 +34,28 @@ public class Main {
         }
 
         System.out.println("\n" + "=".repeat(70));
-        System.out.println("  ANALIZADOR LÉXICO - MiniLang");
+        System.out.println("  COMPILADOR TURBO X");
         System.out.println("  Archivo: " + archivo.getAbsolutePath());
         System.out.println("=".repeat(70));
 
-        // Listas para acumular resultados
-        List<Token> tokens  = new ArrayList<>();
-        List<Token> errores = new ArrayList<>();
-
-        // Tabla de símbolos limpia
+        // ── Preparar tabla de símbolos ────────────────────────────────────────
         TablaSimbolos tabla = TablaSimbolos.getInstance();
         tabla.limpiar();
 
-        // ── Análisis léxico ──────────────────────────────────────────────────
+        // Declarar fuera del try para acceder después
+        Lexer   lexer           = null;
+        Parser  parser          = null;
+        boolean exitoSintactico = false;
+
+        // ── Fase 1 + 2: Léxico y Sintáctico ──────────────────────────────────
         try (Reader reader = new FileReader(archivo)) {
 
-            Lexer lexer = new Lexer(reader);
+            lexer  = new Lexer(reader);
+            parser = new Parser(lexer);
 
-            System.out.println("\n TOKENS RECONOCIDOS");
-            System.out.println("=".repeat(70));
-            System.out.println(Token.cabecera());
-            System.out.println("-".repeat(70));
-
-            Token t;
-            while (true) {
-                t = lexer.yylex();
-                if (t == null) break;
-
-                System.out.println(t);
-
-                if (t.esError()) {
-                    errores.add(t);
-                } else if (t.esEOF()) {
-                    tokens.add(t);
-                    break;
-                } else {
-                    tokens.add(t);
-                }
-            }
+            System.out.println("\n  Ejecutando análisis léxico y sintáctico...");
+            parser.parse();
+            exitoSintactico = true;
 
         } catch (FileNotFoundException e) {
             System.err.println("[ERROR] Archivo no encontrado: " + rutaArchivo);
@@ -86,42 +64,81 @@ public class Main {
             System.err.println("[ERROR] Error de lectura: " + e.getMessage());
             System.exit(1);
         } catch (Exception e) {
-            System.err.println("[ERROR] Error inesperado: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
+            // Error sintáctico fatal — el parser ya lo acumuló en su lista
+            // solo mostramos si hay algo extra no capturado
+            if (e.getMessage() != null && !e.getMessage().contains("sintáctico")) {
+                System.err.println("  ✗ " + e.getMessage());
+            }
         }
 
-        // ── Errores léxicos ──────────────────────────────────────────────────
-        if (!errores.isEmpty()) {
+        // ── Verificar que el Lexer se creó correctamente ──────────────────────
+        if (lexer == null) return;
+
+        List<Token>  tokens        = lexer.tokensReconocidos;
+        List<Token>  erroresLex    = lexer.erroresLexicos;
+        List<String> erroresSint   = (parser != null)
+                ? parser.getErroresSintacticos()
+                : new java.util.ArrayList<>();
+
+        // ── Resultado general del análisis ────────────────────────────────────
+        System.out.println(exitoSintactico && erroresSint.isEmpty()
+                ? "\n  ✓ Análisis completado sin errores."
+                : "\n  ✗ Análisis completado con errores.");
+
+        // ── Tokens reconocidos ────────────────────────────────────────────────
+        System.out.println("\n" + "=".repeat(70));
+        System.out.println(" TOKENS RECONOCIDOS");
+        System.out.println("=".repeat(70));
+        System.out.println(Token.cabecera());
+        System.out.println("-".repeat(70));
+        tokens.stream()
+                .filter(t -> !t.esEOF())
+                .forEach(System.out::println);
+
+        // ── Errores léxicos ───────────────────────────────────────────────────
+        if (!erroresLex.isEmpty()) {
             System.out.println("\n" + "=".repeat(70));
             System.out.println(" ERRORES LÉXICOS DETECTADOS");
             System.out.println("=".repeat(70));
             System.out.printf("%-6s %-8s %s%n", "Línea", "Columna", "Descripción");
             System.out.println("-".repeat(70));
-            for (Token err : errores) {
+            for (Token err : erroresLex) {
                 System.out.printf("%-6d %-8d Carácter no reconocido: '%s'%n",
                         err.getLinea(), err.getColumna(), err.getValor());
             }
             System.out.println("=".repeat(70));
         }
 
-        // ── Tabla de símbolos ────────────────────────────────────────────────
+        // ── Errores sintácticos ───────────────────────────────────────────────
+        if (!erroresSint.isEmpty()) {
+            System.out.println("\n" + "=".repeat(70));
+            System.out.println(" ERRORES SINTÁCTICOS DETECTADOS");
+            System.out.println("=".repeat(70));
+            for (String err : erroresSint) {
+                System.out.println("  ✗ " + err);
+            }
+            System.out.println("=".repeat(70));
+        }
+
+        // ── Tabla de símbolos ─────────────────────────────────────────────────
         tabla.imprimir();
 
-        // ── Resumen ──────────────────────────────────────────────────────────
-        long tokensValidos = tokens.stream()
-                .filter(tk -> !tk.esEOF() && !tk.esError())
+        // ── Resumen final ─────────────────────────────────────────────────────
+        long validos = tokens.stream()
+                .filter(t -> !t.esEOF() && !t.esError())
                 .count();
 
-        System.out.println("\n RESUMEN DEL ANÁLISIS");
+        System.out.println("\n" + "=".repeat(70));
+        System.out.println(" RESUMEN DEL ANÁLISIS");
         System.out.println("=".repeat(70));
         System.out.printf("  Archivo analizado       : %s%n", archivo.getName());
-        System.out.printf("  Tokens reconocidos      : %d%n", tokensValidos);
-        System.out.printf("  Errores léxicos         : %d%n", errores.size());
+        System.out.printf("  Tokens reconocidos      : %d%n", validos);
+        System.out.printf("  Errores léxicos         : %d%n", erroresLex.size());
+        System.out.printf("  Errores sintácticos     : %d%n", erroresSint.size());
         System.out.printf("  Identificadores únicos  : %d%n", tabla.tamanio());
-        System.out.println(errores.isEmpty()
-                ? "  Estado                  : ✓ Análisis léxico exitoso"
-                : "  Estado                  : ✗ Se encontraron errores léxicos");
+        System.out.println((exitoSintactico && erroresSint.isEmpty())
+                ? "  Estado                  : ✓ Análisis exitoso"
+                : "  Estado                  : ✗ Se encontraron errores");
         System.out.println("=".repeat(70));
     }
 }

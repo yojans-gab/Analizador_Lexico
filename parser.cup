@@ -1,0 +1,171 @@
+/* ============================================================
+   Compilador TurboX — Analizador Sintáctico
+   Fase 2: Gramática BNF con JCUP
+   ============================================================ */
+
+package minilang;
+
+import java_cup.runtime.*;
+
+/* ── Código que va dentro de la clase Parser ── */
+action code {:
+    TablaSimbolos tabla = TablaSimbolos.getInstance();
+:}
+
+/* ── Manejo personalizado de errores sintácticos ── */
+parser code {:
+    private java.util.List<String> erroresSintacticos = new java.util.ArrayList<>();
+
+    public java.util.List<String> getErroresSintacticos() {
+        return erroresSintacticos;
+    }
+
+    @Override
+    public void report_error(String message, Object info) {
+        String msg;
+        if (info instanceof java_cup.runtime.Symbol) {
+            java_cup.runtime.Symbol s = (java_cup.runtime.Symbol) info;
+            if (s.value instanceof minilang.Token) {
+                minilang.Token t = (minilang.Token) s.value;
+                msg = "Línea " + t.getLinea() + ", Columna " + t.getColumna()
+                    + ": token inesperado '" + t.getLexema() + "'";
+            } else {
+                msg = message;
+            }
+        } else {
+            msg = message;
+        }
+        erroresSintacticos.add(msg);  // acumula en lugar de imprimir
+    }
+
+    @Override
+    public void report_fatal_error(String message, Object info) {
+        report_error(message, info);
+        throw new RuntimeException("Error sintáctico fatal: " + message);
+    }
+:}
+
+/* ── Declaración de terminales (tokens del Lexer) ── */
+terminal PR_PROGRAMA, PR_NUM, PR_DECIMAL, PR_TEXTO;
+terminal PR_LETRA, PR_LOGICO, PR_CIERTO, PR_FALSO;
+terminal PR_MOSTRAR, PR_SI, PR_SINO, PR_MIENTRAS;
+terminal ABRE_BLOQUE, CIERRA_BLOQUE;
+terminal IGUAL_IGUAL, DIFERENTE, MAYOR_IGUAL, MENOR_IGUAL, MAYOR, MENOR;
+terminal ASIGNACION;
+terminal SUMA, RESTA, MULT, DIV, POTENCIA;
+terminal PAR_IZQ, PAR_DER, PUNTO_COMA, COMA;
+terminal ENTERO_LITERAL, REAL_LITERAL, STRING_LITERAL, CHAR_LITERAL;
+terminal String ID;
+
+/* ── Declaración de no terminales ── */
+non terminal programa;
+non terminal bloque;
+non terminal lista_sentencias;
+non terminal sentencia;
+non terminal declaracion;
+non terminal asignacion;
+non terminal condicion;
+non terminal ciclo;
+non terminal impresion;
+non terminal tipo;
+non terminal expresion;
+non terminal expresion_rel;
+non terminal termino;
+non terminal factor;
+
+/* ── Precedencia (resuelve ambigüedad aritmética) ── */
+precedence left SUMA, RESTA;
+precedence left MULT, DIV;
+precedence right POTENCIA;
+
+/* ── Símbolo inicial ── */
+start with programa;
+
+/* ============================================================
+   REGLAS GRAMATICALES
+   ============================================================ */
+
+/* Un programa completo */
+programa ::= PR_PROGRAMA ID ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
+           ;
+
+/* Lista de sentencias: puede ser vacía o múltiples */
+lista_sentencias ::= lista_sentencias sentencia
+                   | /* vacía */
+                   ;
+
+/* Tipos de sentencias válidas */
+sentencia ::= declaracion
+            | asignacion
+            | condicion
+            | ciclo
+            | impresion
+            | error PUNTO_COMA   /* recuperación de errores */
+            ;
+
+/* Declaración de variable: tipo ID ; */
+declaracion ::= tipo ID PUNTO_COMA
+              ;
+
+/* Tipos de datos disponibles */
+tipo ::= PR_NUM
+       | PR_DECIMAL
+       | PR_TEXTO
+       | PR_LETRA
+       | PR_LOGICO
+       ;
+
+/* Asignación: ID = expresion ; */
+asignacion ::= ID ASIGNACION expresion PUNTO_COMA
+             ;
+
+/* Condicional SI con y sin SINO */
+condicion ::= PR_SI PAR_IZQ expresion_rel PAR_DER
+              ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
+            | PR_SI PAR_IZQ expresion_rel PAR_DER
+              ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
+              PR_SINO
+              ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
+            ;
+
+/* Ciclo MIENTRAS */
+ciclo ::= PR_MIENTRAS PAR_IZQ expresion_rel PAR_DER
+          ABRE_BLOQUE lista_sentencias CIERRA_BLOQUE
+        ;
+
+/* Función mostrar */
+impresion ::= PR_MOSTRAR PAR_IZQ expresion PAR_DER PUNTO_COMA
+            ;
+
+/* ── Expresiones aritméticas ── */
+expresion ::= expresion SUMA     termino
+            | expresion RESTA    termino
+            | termino
+            ;
+
+termino ::= termino MULT   factor
+          | termino DIV    factor
+          | termino POTENCIA factor
+          | factor
+          ;
+
+factor ::= PAR_IZQ expresion PAR_DER
+         | ID
+         | ENTERO_LITERAL
+         | REAL_LITERAL
+         | STRING_LITERAL
+         | CHAR_LITERAL
+         | PR_CIERTO
+         | PR_FALSO
+         ;
+
+/* ── Expresiones relacionales ── */
+expresion_rel ::= expresion IGUAL_IGUAL  expresion
+                | expresion DIFERENTE    expresion
+                | expresion MAYOR        expresion
+                | expresion MENOR        expresion
+                | expresion MAYOR_IGUAL  expresion
+                | expresion MENOR_IGUAL  expresion
+                | expresion
+                ;
+

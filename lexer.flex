@@ -8,13 +8,30 @@ package minilang;
 %line
 %column
 %type Token
+%implements java_cup.runtime.Scanner
 
 %{
     private TablaSimbolos tabla = TablaSimbolos.getInstance();
 
+   // Lista que acumula todos los tokens para mostrarlos después
+    public java.util.List<Token> tokensReconocidos = new java.util.ArrayList<>();
+    public java.util.List<Token> erroresLexicos    = new java.util.ArrayList<>();
+
     private Token token(TipoToken tipo) {
-        return new Token(tipo, yytext(), yyline + 1, yycolumn + 1);
+        Token t = new Token(tipo, yytext(), yyline + 1, yycolumn + 1);
+        if (tipo == TipoToken.ERROR) {
+            erroresLexicos.add(t);
+        } else {
+            tokensReconocidos.add(t);
+        }
+        return t;
     }
+
+    @Override
+    public java_cup.runtime.Symbol next_token() throws Exception {
+        return yylex();
+    }
+
 %}
 
 /* ── Macros ─────────────────────────────────────────── */
@@ -49,11 +66,8 @@ SALTO   = \n
 "mientras"  { return token(TipoToken.PR_MIENTRAS); }
 
 /* ── Delimitadores de bloque ─────────────────────────── */
-"<<"        { return token(TipoToken.INICIO_BLOQUE_PRINCIPAL); }
-">>"        { return token(TipoToken.FIN_BLOQUE_PRINCIPAL); }
-"??"        { return token(TipoToken.INICIO_BLOQUE_SI); }
-"!!"        { return token(TipoToken.FIN_BLOQUE_SI); }
-"::"        { return token(TipoToken.BLOQUE_MIENTRAS); }
+"<<"        { return token(TipoToken.ABRE_BLOQUE); }
+">>"        { return token(TipoToken.CIERRA_BLOQUE); }
 
 /* ── Operadores relacionales (dobles primero) ────────── */
 "=="        { return token(TipoToken.IGUAL_IGUAL); }
@@ -93,7 +107,7 @@ SALTO   = \n
             }
 
 /* ── Fin de archivo ──────────────────────────────────── */
-<<EOF>>     { return new Token(TipoToken.EOF, "<EOF>", yyline + 1, yycolumn + 1); }
+<<EOF>> { return token(TipoToken.EOF); }
 
 /* ── Error léxico ────────────────────────────────────── */
-.           { return new Token(TipoToken.ERROR, yytext(), yyline + 1, yycolumn + 1); }
+.           { return token(TipoToken.ERROR); }

@@ -1,0 +1,39 @@
+programa Demo <<
+
+    num x;
+    num contador;
+    decimal y;
+    texto nombre;
+    letra inicial;
+    logico activo;
+
+    x = 10;
+    contador = 0;
+    y = 3.14;
+    nombre = "TurboX";
+    inicial = 'T';
+    activo = cierto;
+
+    mostrar(nombre);
+    mostrar(x);
+
+    si (x > 5) <<
+        mostrar("x es mayor que 5");
+        x = x + 1;
+    >>
+
+    si (x == 11) <<
+        mostrar("x vale once");
+    >> sino <<
+        mostrar("x no vale once");
+    >>
+
+    mientras (contador < 3) <<
+        contador = contador + 1;
+        mostrar(contador);
+    >>
+
+    y = x + y;
+    y = y * 2;
+
+>>

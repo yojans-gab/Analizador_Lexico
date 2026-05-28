@@ -1,0 +1,22 @@
+programa PruebaErrores <<
+
+    num x;
+    decimal y;
+
+    x = 10;
+    y = 3.14;
+
+    si (x > 5) <<
+        mostrar("Mayor");
+        num z
+        z = x + 1;
+    >>
+
+    mientras (y < 10) <<
+        y = y + 0.5
+        mostrar(y);
+    >>
+
+    mostrar(x);
+
+>>
