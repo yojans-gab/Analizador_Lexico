@@ -259,33 +259,55 @@ public class Parser extends java_cup.runtime.lr_parser {
 
 
     private java.util.List<String> erroresSintacticos = new java.util.ArrayList<>();
+    private int ultimaLinea   = 0;
+    private int ultimaColumna = 0;
+    private String ultimoLexema = "";
 
     public java.util.List<String> getErroresSintacticos() {
         return erroresSintacticos;
     }
 
+    // JCUP llama a este metodo antes de cada accion
+    // Lo usamos para rastrear la posicion del ultimo token
+    public void rastrearToken(minilang.Token t) {
+        if (t != null) {
+            ultimaLinea   = t.getLinea();
+            ultimaColumna = t.getColumna();
+            ultimoLexema  = t.getLexema();
+        }
+    }
+
     @Override
     public void report_error(String message, Object info) {
-        String msg;
+        StringBuilder msg = new StringBuilder("[ERROR SINTACTICO]");
         if (info instanceof java_cup.runtime.Symbol) {
             java_cup.runtime.Symbol s = (java_cup.runtime.Symbol) info;
             if (s.value instanceof minilang.Token) {
                 minilang.Token t = (minilang.Token) s.value;
-                msg = "Línea " + t.getLinea() + ", Columna " + t.getColumna()
-                    + ": token inesperado '" + t.getLexema() + "'";
+                msg.append(" Linea ").append(t.getLinea())
+                   .append(", Columna ").append(t.getColumna())
+                   .append(": token inesperado '").append(t.getLexema()).append("'");
+            } else if (ultimaLinea > 0) {
+                msg.append(" cerca de la linea ").append(ultimaLinea)
+                   .append(", columna ").append(ultimaColumna)
+                   .append(": token inesperado '").append(ultimoLexema).append("'");
             } else {
-                msg = message;
+                msg.append(" ").append(message);
             }
+        } else if (ultimaLinea > 0) {
+            msg.append(" cerca de la linea ").append(ultimaLinea)
+               .append(", columna ").append(ultimaColumna)
+               .append(": token inesperado '").append(ultimoLexema).append("'");
         } else {
-            msg = message;
+            msg.append(" ").append(message);
         }
-        erroresSintacticos.add(msg);  // acumula en lugar de imprimir
+        erroresSintacticos.add(msg.toString());
     }
 
     @Override
     public void report_fatal_error(String message, Object info) {
         report_error(message, info);
-        throw new RuntimeException("Error sintáctico fatal: " + message);
+        throw new RuntimeException("Error sintactico irrecuperable");
     }
 
 

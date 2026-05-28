@@ -52,6 +52,7 @@ public class Main {
 
             lexer  = new Lexer(reader);
             parser = new Parser(lexer);
+            lexer.setParser(parser);
 
             System.out.println("\n  Ejecutando análisis léxico y sintáctico...");
             parser.parse();

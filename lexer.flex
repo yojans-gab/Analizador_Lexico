@@ -13,16 +13,26 @@ package minilang;
 %{
     private TablaSimbolos tabla = TablaSimbolos.getInstance();
 
-   // Lista que acumula todos los tokens para mostrarlos después
     public java.util.List<Token> tokensReconocidos = new java.util.ArrayList<>();
     public java.util.List<Token> erroresLexicos    = new java.util.ArrayList<>();
+
+    // Referencia al parser para rastrear posición
+    private Parser parserRef = null;
+
+    public void setParser(Parser p) {
+        this.parserRef = p;
+    }
 
     private Token token(TipoToken tipo) {
         Token t = new Token(tipo, yytext(), yyline + 1, yycolumn + 1);
         if (tipo == TipoToken.ERROR) {
             erroresLexicos.add(t);
-        } else {
+        } else if (tipo != TipoToken.EOF) {
             tokensReconocidos.add(t);
+        }
+        // Rastrear posición para el parser
+        if (parserRef != null && tipo != TipoToken.ERROR) {
+            parserRef.rastrearToken(t);
         }
         return t;
     }
@@ -31,7 +41,6 @@ package minilang;
     public java_cup.runtime.Symbol next_token() throws Exception {
         return yylex();
     }
-
 %}
 
 /* ── Macros ─────────────────────────────────────────── */
